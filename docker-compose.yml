@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MONGO_URI=mongodb://root:example@mongodb:27017/VeXeKhach?authSource=admin
+      - MONGO_URI=mongodb://root:example@mongo:27017/VeXeKhach?authSource=admin
       - MONGO_DB=VeXeKhach
       - SECRET_KEY=your_secret_key
       - ALGORITHM=HS256
@@ -17,10 +17,12 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - FROM_EMAIL=${FROM_EMAIL}
     depends_on:
-      - mongodb
-
-  mongodb:
+      - mongo
+    networks:
+      - mongo-network
+  mongo:
     image: mongo:latest
+    container_name: mongodb-cnpm
     ports:
       - "27017:27017"
     environment:
@@ -28,6 +30,27 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=example
     volumes:
       - mongodb_data:/data/db
+    networks:
+      - mongo-network
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express-cnpm
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=root
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=example
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_BASICAUTH=false
+    depends_on:
+      - mongo
+    networks:
+      - mongo-network
 
 volumes:
   mongodb_data:
+
+networks:
+  mongo-network:
+    driver: bridge

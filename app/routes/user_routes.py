@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException,Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from app.database import get_user_collection
 from app import auth, schemas
 from pymongo.errors import DuplicateKeyError
@@ -7,9 +7,9 @@ from app.auth import verify_password, create_access_token
 from app.validators import validate_password, validate_username
 from app.email_service import email_service
 import secrets
-from fastapi import Request
 from fastapi.responses import HTMLResponse
 from app.schemas import LoginResponse, UserLogin
+from bson import ObjectId
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -147,6 +147,54 @@ async def verify_email(token: str):
             </body>
         </html>
         """
+    )
+
+@router.get("/profile/me", response_model=schemas.UserProfileResponse)
+async def get_profile(current_user_id: str = Depends(auth.get_current_user)):
+    users = get_user_collection()
+    user_data = await users.find_one({"_id": ObjectId(current_user_id)})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return schemas.UserProfileResponse(
+        id=str(user_data['_id']),
+        username=user_data["username"],
+        email=user_data["email"],
+        full_name=user_data.get("full_name", "unknown"),
+        age=user_data.get("age"),
+        phone_number=user_data.get("phone_number", "unknown"),
+        address=user_data.get("address", "unknown"),
+        created_at=user_data.get("created_at"),
+        email_verified_at=user_data.get("email_verified_at"),
+        is_email_verified=user_data.get("is_email_verified", False)
+    )
+
+@router.put("/profile/me/update", response_model=schemas.UserProfileResponse)
+async def update_profile(profile_update: schemas.UserProfileUpdate, current_user_id: str = Depends(auth.get_current_user)):
+    users = get_user_collection()
+    
+    allowed_fields = ['user_name','full_name', 'age', 'phone_number', 'address']
+    update_data = {k: v for k, v in profile_update.dict().items() if v is not None and k in allowed_fields}
+    if update_data:
+        result = await users.update_one(
+            {"_id": ObjectId(current_user_id)},
+            {"$set": update_data}
+        )
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+    
+    user_data = await users.find_one({"_id": ObjectId(current_user_id)})
+    return schemas.UserProfileResponse(
+        id=str(user_data["_id"]),
+        username=user_data["username"],
+        email=user_data["email"],
+        full_name=user_data.get("full_name", "unknown"),
+        age=user_data.get("age"),
+        phone_number=user_data.get("phone_number", "unknown"),
+        address=user_data.get("address", "unknown"),
+        created_at=user_data["created_at"],
+        email_verified_at=user_data.get("email_verified_at"),
+        is_email_verified=user_data.get("is_email_verified", False)
     )
 
 @router.post("/login", response_model=LoginResponse)
