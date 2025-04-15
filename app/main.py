@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.routes import user_routes
+from app.routes import user_routes, route_routes
 
 app = FastAPI()
 
@@ -15,3 +15,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(user_routes.router)
+app.include_router(route_routes.router)
